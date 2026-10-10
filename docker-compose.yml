@@ -1,0 +1,18 @@
+services:
+  agent-fleet:
+    build: .
+    container_name: multi-agent-ai-system
+    ports:
+      - "8501:8501"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - TARGET_WORKSPACE=/workspace
+      - DB_PATH=/app/data/agent_fleet.db
+      - PYTHONPATH=/app
+    volumes:
+      # Persistent local database & logs
+      - ./data:/app/data
+      # Mount ANY target project directory on your host into the container's workspace
+      - ${TARGET_PROJECT_PATH:-./sandbox}:/workspace
+    restart: unless-stopped
