@@ -32,8 +32,8 @@ class BaseAgent:
         if json_mode:
             config.response_mime_type = "application/json"
 
-        # List of valid models to try in sequence if one has high demand (503)
-        candidate_models = [GEMINI_MODEL, "gemini-2.0-flash", "gemini-1.5-flash"]
+        # Candidate models verified available on this API key
+        candidate_models = [GEMINI_MODEL, "gemini-flash-latest", "gemini-3.5-flash", "gemini-flash-lite-latest"]
         # Remove duplicates while preserving order
         candidate_models = list(dict.fromkeys(candidate_models))
 

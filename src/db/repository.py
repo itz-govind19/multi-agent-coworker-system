@@ -88,6 +88,11 @@ def increment_task_retry(task_id: str) -> int:
         row = conn.execute("SELECT retry_count FROM tasks WHERE id = ?", (task_id,)).fetchone()
         return row["retry_count"] if row else 0
 
+def reset_task_retry(task_id: str):
+    with get_db() as conn:
+        conn.execute("UPDATE tasks SET retry_count = 0 WHERE id = ?", (task_id,))
+        conn.commit()
+
 def update_heartbeat(agent_name: str, role: str, status: str, current_task_id: Optional[str] = None, details: str = ""):
     with get_db() as conn:
         conn.execute("""
