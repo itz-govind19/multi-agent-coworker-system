@@ -4,7 +4,21 @@ import uuid
 from typing import List, Optional, Dict, Any
 from src.db.database import get_db
 
-def create_project(name: str, goal: str, workspace_path: str) -> str:
+def get_project_by_name_or_workspace(name: str, workspace_path: str) -> Optional[Dict[str, Any]]:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM projects WHERE name = ? OR workspace_path = ? ORDER BY created_at DESC", 
+            (name, workspace_path)
+        ).fetchone()
+        return dict(row) if row else None
+
+def create_or_resume_project(name: str, goal: str, workspace_path: str) -> tuple[str, bool]:
+    """Returns (project_id, is_resumed). Resumes existing project if found instead of starting over."""
+    existing = get_project_by_name_or_workspace(name, workspace_path)
+    if existing:
+        log_event(existing["id"], "System", f"Resumed active project context: {name}. Restoring existing tasks.")
+        return existing["id"], True
+    
     project_id = f"proj_{uuid.uuid4().hex[:8]}"
     with get_db() as conn:
         conn.execute(
@@ -13,7 +27,11 @@ def create_project(name: str, goal: str, workspace_path: str) -> str:
         )
         conn.commit()
     log_event(project_id, "System", f"Project created: {name} with target {workspace_path}")
-    return project_id
+    return project_id, False
+
+def create_project(name: str, goal: str, workspace_path: str) -> str:
+    pid, _ = create_or_resume_project(name, goal, workspace_path)
+    return pid
 
 def get_project(project_id: str) -> Optional[Dict[str, Any]]:
     with get_db() as conn:

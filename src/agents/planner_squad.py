@@ -15,15 +15,22 @@ Your job is to analyze high-level user goals, identify edge cases, input validat
 Produce clear, modular software requirements without fluff."""
         )
 
-    def analyze(self, goal: str, project_id: str = None) -> str:
+    def analyze(self, goal: str, workspace_summary: str = "", project_id: str = None) -> str:
         self.ping("WORKING", details="Analyzing user goal requirements")
-        prompt = f"""Break down the following goal into functional requirements and critical edge cases:
-Goal: {goal}
+        prompt = f"""You are analyzing requirements for an EXISTING software repository.
+User Request / Goal: {goal}
+
+Repository Summary & Key Context:
+{workspace_summary}
+
+Please break down what needs to be done. 
+NOTE: If the user says "Understand existing project" or "Explain the codebase", focus on architectural documentation, component relationship mapping, and auditing existing tests.
+Do NOT propose building a brand-new ingestion pipeline from scratch if one already exists in the repo.
 
 Output clear bullet points covering:
-1. Core Functionality
-2. Input Validation & Boundaries
-3. Error Handling Cases
+1. Core Scope & Objectives
+2. Key Existing Modules to Inspect (e.g. services, shared, models)
+3. Expected Deliverables / Verification Criteria
 """
         result = self.call_llm(prompt, project_id=project_id)
         self.ping("IDLE")
@@ -111,13 +118,50 @@ class LeadPlannerSquad(BaseAgent):
         self.log(project_id, "Starting planning squad workflow...")
         self.ping("WORKING", details="Coordinating planning squad")
 
-        # 1. Inspect existing files in workspace
-        existing_files = list_files(Path(workspace_path))
-        self.log(project_id, f"Workspace inspected: found {len(existing_files)} files/dirs")
+        ws_path_obj = Path(workspace_path)
+        from src.config import IS_EXISTING_PROJECT, PROJECT_MEMORY_FILE
+
+        # --- DYNAMIC BRANCHING: EXISTING PROJECT VS NEW PROJECT ---
+        if IS_EXISTING_PROJECT:
+            # 1. Check if codebase understanding is already cached in memory
+            if PROJECT_MEMORY_FILE.exists():
+                self.log(project_id, "Using cached codebase understanding (Saved tokens!).")
+                try:
+                    cached_understanding = json.loads(PROJECT_MEMORY_FILE.read_text(encoding="utf-8"))
+                    repo_context = cached_understanding.get("summary", "")
+                    existing_files = cached_understanding.get("files", [])
+                except Exception:
+                    cached_understanding = None
+            else:
+                cached_understanding = None
+
+            # If not cached, inspect once and persist to memory
+            if not cached_understanding:
+                self.log(project_id, "First-time scan of existing codebase. Indexing and caching understanding...")
+                existing_files = list_files(ws_path_obj)
+                readme_snippet = read_file(ws_path_obj, "README.md")[:1200] if "README.md" in existing_files else ""
+                reqs_snippet = read_file(ws_path_obj, "requirements.txt")[:600] if "requirements.txt" in existing_files else ""
+                
+                # Analyze once and save to disk
+                repo_context = f"Existing Project. Files: {len(existing_files)}\nREADME:\n{readme_snippet}\nRequirements:\n{reqs_snippet}"
+                PROJECT_MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+                PROJECT_MEMORY_FILE.write_text(json.dumps({
+                    "summary": repo_context,
+                    "files": existing_files[:100]
+                }, indent=2), encoding="utf-8")
+                self.log(project_id, "Codebase understanding cached to data/codebase_understanding.json")
+
+            self.log(project_id, f"Planner evaluating requirement against existing architecture...")
+        else:
+            # BRAND-NEW PROJECT MODE:
+            # Do NOT assume existing files. Build architecture strictly from Product Manager requirements.
+            self.log(project_id, "New Project Mode: Planning architecture from scratch based on Product Manager requirements.")
+            existing_files = []
+            repo_context = "Brand-new project. No pre-existing codebase files."
 
         # 2. Run Requirements Sub-agent
-        self.log(project_id, "Requirements Analyst analyzing goal...")
-        requirements = self.req_analyst.analyze(goal, project_id=project_id)
+        self.log(project_id, "Requirements Analyst breaking down user requirement...")
+        requirements = self.req_analyst.analyze(goal, workspace_summary=repo_context, project_id=project_id)
         self.log(project_id, "Requirements analysis complete.")
 
         # 3. Run System Architect Sub-agent

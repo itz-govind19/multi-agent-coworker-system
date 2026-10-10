@@ -10,6 +10,7 @@ services:
       - TARGET_WORKSPACE=/workspace
       - DB_PATH=/app/data/agent_fleet.db
       - PYTHONPATH=/app
+      - IS_EXISTING_PROJECT=${IS_EXISTING_PROJECT:-true}
     volumes:
       # Persistent local database & logs
       - ./data:/app/data

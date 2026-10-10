@@ -19,6 +19,12 @@ DB_PATH = os.getenv("DB_PATH", str(DATA_DIR / "agent_fleet.db"))
 TARGET_WORKSPACE = Path(os.getenv("TARGET_WORKSPACE", str(BASE_DIR / "sandbox")))
 TARGET_WORKSPACE.mkdir(exist_ok=True, parents=True)
 
+# Project Mode (Existing codebase vs Brand-new project)
+IS_EXISTING_PROJECT = os.getenv("IS_EXISTING_PROJECT", "true").lower() in ("true", "1", "yes")
+
+# Persistent Architecture Memory Cache (avoids repeating token-heavy codebase scans)
+PROJECT_MEMORY_FILE = DATA_DIR / "codebase_understanding.json"
+
 # Gemini API configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")

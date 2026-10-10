@@ -64,25 +64,40 @@ with st.sidebar.expander("➕ Launch New Project / Goal", expanded=True):
         proj_name = st.text_input("Project Name", placeholder="e.g. Option Trading System")
         proj_goal = st.text_area("What do you want the AI fleet to do in this project?", placeholder="e.g. Audit test coverage in tests/, fix failing tests, or add a new risk management module.")
         
+        # Dynamic Mode Selection
+        from src.config import IS_EXISTING_PROJECT
+        is_existing = st.checkbox("Existing Project Codebase", value=IS_EXISTING_PROJECT, help="If checked, agents reuse cached architectural understanding to save tokens. If unchecked, agents design from scratch based on Product Manager input.")
+        
         # Target workspace
         workspace_dir = st.text_input(
             "Workspace Path", 
             value=str(TARGET_WORKSPACE),
             help="In Docker, leave this as '/workspace'. It automatically mirrors your host project defined in TARGET_PROJECT_PATH."
         )
-        st.caption("💡 *The AI agents will inspect existing files (`main.py`, `services/`, `tests/`) and modify them in place.*")
+        if is_existing:
+            st.caption("💡 *Existing Mode: Planner inspects architecture once, caches it, and plans changes strictly aligned with existing modules.*")
+        else:
+            st.caption("💡 *New Project Mode: Planner drafts new architecture strictly from your requirements from scratch.*")
         submitted = st.form_submit_button("🚀 Inspect Repo & Plan Tasks")
         
         if submitted and proj_name and proj_goal:
-            with st.spinner("Lead Planner Squad is analyzing and generating technical tasks..."):
-                proj_id = create_project(proj_name, proj_goal, workspace_dir)
-                planner = LeadPlannerSquad()
-                tasks_created = planner.plan_project(proj_id, proj_goal, workspace_dir)
-                if tasks_created:
-                    st.success(f"🎉 Generated {len(tasks_created)} technical tasks on the Kanban board!")
-                else:
-                    st.warning("⚠️ Planning completed, but 0 tasks were generated. Check the 'Live Agent Logs' tab for details or API errors.")
+            proj_id, is_resumed = create_or_resume_project(proj_name, proj_goal, workspace_dir)
+            existing_tasks = get_tasks_for_project(proj_id)
+            
+            # If project already exists and has tasks, RESUME seamlessly without re-planning
+            if is_resumed and existing_tasks:
+                st.info(f"🔄 Resumed active project **{proj_name}**! Restored {len(existing_tasks)} tasks from last session without spending new tokens.")
+                time.sleep(1)
                 st.rerun()
+            else:
+                with st.spinner("Lead Planner Squad is analyzing requirements and generating tasks..."):
+                    planner = LeadPlannerSquad()
+                    tasks_created = planner.plan_project(proj_id, proj_goal, workspace_dir)
+                    if tasks_created:
+                        st.success(f"🎉 Generated {len(tasks_created)} technical tasks on the Kanban board!")
+                    else:
+                        st.warning("⚠️ Planning completed, but 0 tasks were generated. Check 'Live Agent Logs' for details.")
+                    st.rerun()
 
 # Select Active Project
 projects = get_all_projects()
