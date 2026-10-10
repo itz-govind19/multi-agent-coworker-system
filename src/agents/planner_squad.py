@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 from src.agents.base_agent import BaseAgent
-from src.tools.workspace_tools import list_files
+from src.tools.workspace_tools import list_files, read_file
 from src.db.repository import create_task
 
 class RequirementsAnalystAgent(BaseAgent):
