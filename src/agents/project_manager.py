@@ -41,8 +41,13 @@ class ProjectManagerAgent(BaseAgent):
             pending_tasks = [t for t in tasks if t["status"] in ("TODO", "IN_PROGRESS", "TESTING")]
             
             if not pending_tasks:
-                self.log(project_id, "All tasks completed! Project finished successfully.")
-                update_project_status(project_id, "COMPLETED")
+                all_done = all(t["status"] == "DONE" for t in tasks)
+                if all_done:
+                    self.log(project_id, "All tasks completed! Project finished successfully.")
+                    update_project_status(project_id, "COMPLETED")
+                else:
+                    self.log(project_id, "Sprint halted: One or more tasks are BLOCKED and need human review.", level="ALERT")
+                    update_project_status(project_id, "BLOCKED")
                 self.ping("IDLE")
                 break
 

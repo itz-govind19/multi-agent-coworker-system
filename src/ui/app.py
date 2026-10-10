@@ -151,13 +151,14 @@ tab_board, tab_fleet, tab_logs, tab_actions = st.tabs([
 with tab_board:
     if selected_proj_id:
         tasks = get_tasks_for_project(selected_proj_id)
-        cols = st.columns(4)
-        col_map = {"TODO": cols[0], "IN_PROGRESS": cols[1], "TESTING": cols[2], "DONE": cols[3]}
+        cols = st.columns(5)
+        col_map = {"TODO": cols[0], "IN_PROGRESS": cols[1], "TESTING": cols[2], "DONE": cols[3], "BLOCKED": cols[4]}
         
         cols[0].markdown("### 📝 To Do")
         cols[1].markdown("### 🔨 In Progress (Dev)")
         cols[2].markdown("### 🧪 Testing (QA)")
         cols[3].markdown("### ✅ Done")
+        cols[4].markdown("### ⛔ Blocked")
 
         for task in tasks:
             status = task["status"]
@@ -170,8 +171,14 @@ with tab_board:
                         st.info(f"**Summary:** {task['result_summary']}")
                     if task["retry_count"] > 0:
                         st.warning(f"Retries: {task['retry_count']}")
-    else:
-        st.info("No active project. Create a project in the sidebar to get started.")
+                    if status == "BLOCKED":
+                        if st.button("🔁 Reset & Retry Task", key=f"unblock_{task['id']}"):
+                            update_task_status(task["id"], "TODO")
+                            with get_db() as conn:
+                                conn.execute("UPDATE tasks SET retry_count = 0 WHERE id = ?", (task["id"],))
+                                conn.commit()
+                            st.success(f"Task {task['id']} unblocked and sent back to TODO!")
+                            st.rerun()
 
 # 2. Fleet Health & Monitoring
 with tab_fleet:
