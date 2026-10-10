@@ -43,7 +43,7 @@ Create automated tests to verify this task. Return ONLY a valid JSON object with
 
             if test_filepath and content:
                 write_file(workspace_path, test_filepath, content)
-                self.log(project_id, f"Test written: {test_filepath}")
+                self.log(project_id, f"QA Test written: {test_filepath}")
 
             # Run test if command specified and not 'none'
             if cmd and cmd.lower() != "none":

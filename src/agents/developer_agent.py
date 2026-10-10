@@ -24,11 +24,39 @@ When instructed, format your file updates as JSON containing:
         self.log(project_id, f"Picked up task {task['id']}: {task['title']}")
 
         files = list_files(workspace_path)
-        prompt = f"""Task: {task['title']}
+        
+        # Check if this is a bug fix retry from QA
+        qa_feedback = task.get("result_summary", "")
+        is_bugfix = "Bug reported by QA:" in qa_feedback or "SyntaxError" in qa_feedback or "ERROR" in qa_feedback
+
+        if is_bugfix:
+            self.log(project_id, f"Autonomous Bug-Fix Mode activated for task {task['id']}. Analyzing QA failure...")
+            prompt = f"""You are fixing a failure detected during QA/Testing.
+Task: {task['title']}
+Task Description: {task['description']}
+
+QA FAILURE DETAILS / ERROR TRACE:
+{qa_feedback}
+
+Current Project Files:
+{json.dumps(files[:50], indent=2)}
+
+AUTONOMOUS INSTRUCTIONS:
+1. Carefully inspect the exact file and line number mentioned in the QA error.
+2. Fix the syntax error, missing import, or broken assertion in that file.
+3. Return the COMPLETE, corrected file content.
+
+Return ONLY a valid JSON object with fields:
+- "filepath": relative path inside workspace of the broken file to fix
+- "content": full corrected code without any syntax errors
+- "summary": exact explanation of the fix applied
+"""
+        else:
+            prompt = f"""Task: {task['title']}
 Description: {task['description']}
 
 Current Project Files:
-{json.dumps(files, indent=2)}
+{json.dumps(files[:50], indent=2)}
 
 Please write the complete code needed for this task. Return ONLY a valid JSON object with fields:
 - "filepath": relative path inside workspace

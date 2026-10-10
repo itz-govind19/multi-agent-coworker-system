@@ -82,14 +82,25 @@ class ProjectManagerAgent(BaseAgent):
                         update_task_status(task_id, "DONE", result_summary=f"QA Passed: {test_res['output']}")
                         self.log(project_id, f"Task {task_id} verified and marked DONE by {qa_id}")
                     else:
-                        retries = increment_task_retry(task_id)
-                        if retries >= MAX_TASK_RETRY_COUNT:
-                            update_task_status(task_id, "BLOCKED", result_summary=f"QA Repeated Failure: {test_res['output']}")
-                            self.log(project_id, f"Task {task_id} BLOCKED: QA failed {retries} times.", level="ALERT")
+                        error_output = test_res["output"]
+                        
+                        # Project Manager analyzes the issue:
+                        # 1. System / Credential / API Token issues require HUMAN intervention
+                        system_keywords = ["unauthorized", "api_key", "token expired", "quota exceeded", "permission denied", "no space left"]
+                        is_system_issue = any(k in error_output.lower() for k in system_keywords)
+
+                        if is_system_issue:
+                            self.log(project_id, f"ProjectManager identified System/Credential issue on task {task_id}. Escalating immediately to Product Manager (Human).", level="ALERT")
+                            update_task_status(task_id, "BLOCKED", result_summary=f"Human Intervention Needed: {error_output}")
                         else:
-                            # Re-assign back to developer to fix
-                            update_task_status(task_id, "IN_PROGRESS", result_summary=f"Bug reported by QA: {test_res['output']}")
-                            self.log(project_id, f"Task {task_id} bounced back to Dev for fixes (Attempt {retries})")
+                            # 2. Code issues (SyntaxError, ModuleNotFoundError, AssertionError) can be solved by Developer Agent
+                            retries = increment_task_retry(task_id)
+                            if retries >= MAX_TASK_RETRY_COUNT:
+                                self.log(project_id, f"Task {task_id} exceeded retry limit ({retries}). Escalating to Human.", level="ALERT")
+                                update_task_status(task_id, "BLOCKED", result_summary=f"QA Repeated Failure ({retries} attempts): {error_output}")
+                            else:
+                                self.log(project_id, f"ProjectManager triaged QA failure: Identified code/syntax issue. Auto-assigning back to Developer to fix (Attempt {retries}).", level="INFO")
+                                update_task_status(task_id, "IN_PROGRESS", result_summary=f"Bug reported by QA: {error_output}")
 
             # Check if all remaining are blocked
             refreshed = get_tasks_for_project(project_id)
