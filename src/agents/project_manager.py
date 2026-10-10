@@ -50,9 +50,11 @@ class ProjectManagerAgent(BaseAgent):
                 task_id = task["id"]
                 status = task["status"]
 
-                # 1. Dev Phase
-                if status == "TODO":
-                    update_task_status(task_id, "IN_PROGRESS")
+                # 1. Dev Phase (New TODO tasks or tasks bounced back from QA for fixes)
+                if status in ("TODO", "IN_PROGRESS"):
+                    if status == "TODO":
+                        update_task_status(task_id, "IN_PROGRESS")
+                    
                     dev_id = task.get("assigned_to") if task.get("assigned_to") in self.devs else "dev_1"
                     dev_agent = self.devs[dev_id]
 

@@ -35,9 +35,21 @@ Please write the complete code needed for this task. Return ONLY a valid JSON ob
 - "content": full file content
 - "summary": what was done
 """
-        response_text = self.call_llm(prompt, json_mode=True)
+        response_text = self.call_llm(prompt, json_mode=True, project_id=project_id)
+        
+        # Clean markdown wrappers if any
+        clean_text = response_text.strip()
+        if clean_text.startswith("```json"):
+            clean_text = clean_text[7:]
+        elif clean_text.startswith("```"):
+            clean_text = clean_text[3:]
+        if clean_text.endswith("```"):
+            clean_text = clean_text[:-3]
+        clean_text = clean_text.strip()
+
         try:
-            plan = json.loads(response_text)
+            # strict=False allows control characters / unescaped backslashes in code strings
+            plan = json.loads(clean_text, strict=False)
             filepath = plan.get("filepath")
             content = plan.get("content")
             summary = plan.get("summary", "Code updated")
