@@ -19,7 +19,8 @@ from src.db.repository import (
     get_tasks_for_project,
     get_all_heartbeats,
     get_logs,
-    update_task_status
+    update_task_status,
+    reset_task_retry
 )
 from src.agents.planner_squad import LeadPlannerSquad
 from src.agents.project_manager import ProjectManagerAgent
@@ -174,9 +175,7 @@ with tab_board:
                     if status == "BLOCKED":
                         if st.button("🔁 Reset & Retry Task", key=f"unblock_{task['id']}"):
                             update_task_status(task["id"], "TODO")
-                            with get_db() as conn:
-                                conn.execute("UPDATE tasks SET retry_count = 0 WHERE id = ?", (task["id"],))
-                                conn.commit()
+                            reset_task_retry(task["id"])
                             st.success(f"Task {task['id']} unblocked and sent back to TODO!")
                             st.rerun()
 
