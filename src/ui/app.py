@@ -13,6 +13,7 @@ import time
 from src.db.database import init_db
 from src.db.repository import (
     create_project,
+    create_or_resume_project,
     get_all_projects,
     get_project,
     get_tasks_for_project,
